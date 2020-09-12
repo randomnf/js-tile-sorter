@@ -1,0 +1,42 @@
+mixin work(data)
+    .portfolio__item(data-tile-tags=`${data.tagsStr}`)
+        article.work
+            header.work__header.work__header--page--main
+                h2.title.work__title.work__title--page--main
+                    a.link.work__title-link(href="#")= data.name
+                    span.work__year '#{data.year}
+                p.work__desc= data.desc
+            ul.tags.list-reset.work__tags
+                each tag in data.tags
+                    li(class=`tags__item tags__item--t--${tag.code}`)= tag.name
+
+<!DOCTYPE html>
+html(lang="ru")
+    head
+        meta(charset="UTF-8")
+        title Tile Sorter MUFAKA
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        meta(http-equiv="X-UA-Compatible", content="ie=edge")
+        link(href="css/style.min.css" rel="stylesheet")
+        noscript
+            style
+                | .controls { display: none }
+    body.page
+        .container
+            .controls
+                each tag in tags
+                    button(class=`controls__btn controls__btn--t--${tag.code}` type="button" data-tag=`${tag.code}`)
+                        | #{tag.name}
+                button(class=`controls__btn controls__btn--t--all controls__btn--active` type="button" data-tag="*")
+                    | все
+
+            .portfolio
+                each item in data
+                    +work(item)
+
+        script(src="js/tile-sorter.min.js")
+        script.
+            const tileSorter = new TileSorter({
+                controlSelector: ".controls__btn",
+                tileSelector: ".portfolio__item",
+            });

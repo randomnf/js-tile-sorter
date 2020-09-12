@@ -1,0 +1,22 @@
+[
+    {
+        "name": "JS",
+        "code": "js"
+    },
+    {
+        "name": "верстка",
+        "code": "html-css"
+    },
+    {
+        "name": "адаптив",
+        "code": "adaptive"
+    },
+    {
+        "name": "IE11+",
+        "code": "ie"
+    },
+    {
+        "name": "BEM",
+        "code": "bem"
+    }
+]
