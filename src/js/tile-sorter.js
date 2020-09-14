@@ -128,13 +128,13 @@ class TileSorter {
         ) / tilesInRow;
     }
 
-    _controlsClickHandler(event) {
+    async _controlsClickHandler(event) {
         const target = event.target.closest(this._controlSelector);
 
         if (!target) return;
 
         if (!this._inited) {
-            this._setInitialState();
+            await this._setInitialState();
         }
 
         const filterTag = target.dataset.tag;
@@ -157,26 +157,29 @@ class TileSorter {
     }
 
     _setInitialState() {
-        this._animate(() => {
-            this._wrapper.DOMNode.style.height = `${this._wrapper.snappedSizes.height}px`;
-
-            this._tiles.forEach((tile, index) => {
-                const { DOMNode } = tile;
-
-                DOMNode.style = `
-                    position: absolute;
-                    top: ${tile.snappedSizes.top}px;
-                    left: ${this._currentTileWidth * (index % this._tilesInRow)}px;
-                    width: ${this._currentTileWidth}px;
-                `;
-                // запоминаем собственную высоту тайла и ставим обратно исходную
-                // это нужно для выравнивания тайлов в строке по высоте
-                tile.snappedSizes.selfHeight = DOMNode.offsetHeight;
-                DOMNode.style.height = `${tile.snappedSizes.height}px`;
+        return new Promise(resolve => {
+            this._animate(() => {
+                this._wrapper.DOMNode.style.height = `${this._wrapper.snappedSizes.height}px`;
+    
+                this._tiles.forEach((tile, index) => {
+                    const { DOMNode } = tile;
+    
+                    DOMNode.style = `
+                        position: absolute;
+                        top: ${tile.snappedSizes.top}px;
+                        left: ${this._currentTileWidth * (index % this._tilesInRow)}px;
+                        width: ${this._currentTileWidth}px;
+                    `;
+                    // запоминаем собственную высоту тайла и ставим обратно исходную
+                    // это нужно для выравнивания тайлов в строке по высоте
+                    tile.snappedSizes.selfHeight = DOMNode.offsetHeight;
+                    DOMNode.style.height = `${tile.snappedSizes.height}px`;
+                });
+    
+                this._inited = true;
+                resolve();
             });
         });
-
-        this._inited = true;
     }
 
     _filter() {
@@ -233,11 +236,6 @@ class TileSorter {
         this._setAnimationData();
         this._animate(this._onBeforeAnimationStart);
         this._animationStartTime = null;
-        console.log(
-            this._tilesToAnimate
-                .map(({ animationData }) => animationData)
-                .filter(item => !item.hide)
-        );
         this._animate(this._animationHandler);
     }
 
@@ -376,7 +374,6 @@ class TileSorter {
     }
 
     _animate(fn) {
-        // cancelAnimationFrame(this._pendingRAF);
         this._pendingRAF = requestAnimationFrame(fn);
     }
 
