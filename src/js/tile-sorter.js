@@ -139,7 +139,10 @@ class TileSorter {
 
     _setInitialState() {
         this._animate(() => {
-            this._wrapper.DOMNode.style.height = `${this._wrapper.snappedSizes.height}px`;
+            const wrapper = this._wrapper;
+            const { height } = wrapper.snappedSizes;
+            wrapper.DOMNode.style.height = `${height}px`;
+            wrapper.currentHeight = height;
 
             // три раза обходим тайлы, чтобы избежать ненужных Forced Synchronous Layouts
             this._tiles.forEach((tile, index) => {
@@ -341,7 +344,7 @@ class TileSorter {
             this._adjustRowHeight(rowToAdjust, rowHeight);
         }
 
-        const from = wrapper.DOMNode.offsetHeight;
+        const from = wrapper.currentHeight;
         const to = (
             rowTop
             + this._visibleTiles[this._visibleTiles.length - 1].animationData.to.height
@@ -371,36 +374,6 @@ class TileSorter {
 
         // TODO splice?
         this._tilesToAnimate = this._tilesToAnimate.filter(tile => !tilesNotChanging.includes(tile));
-    }
-
-    _onBeforeAnimationStart() {
-        this._tilesToAnimate.forEach(tile => {
-            if (tile.animationData.appear) {
-                const { DOMNode, animationData: { to: { top, left, height } } } = tile;
-
-                DOMNode.style.top = `${top}px`;
-                DOMNode.style.left = `${left}px`;
-                DOMNode.style.height = `${height}px`;
-                DOMNode.style.transform = "scale(0)";
-                DOMNode.style.display = this._tileDefaults.display;
-
-                tile.currentState = {
-                    display: this._tileDefaults.display,
-                    top,
-                    left,
-                    height,
-                    scale: 1,
-                };
-            }
-        });
-    }
-
-    _linearTimingFn(timeFraction) {
-        return timeFraction;
-    }
-
-    _animate(fn) {
-        this._pendingRAF = requestAnimationFrame(fn);
     }
 
     _animationHandler(time) {
@@ -441,7 +414,9 @@ class TileSorter {
         });
 
         const { from, diff } = this._wrapper.animationData;
-        this._wrapper.DOMNode.style.height = `${from + diff * progress}px`;
+        const wrapperHeight = from + diff * progress;
+        this._wrapper.DOMNode.style.height = `${wrapperHeight}px`;
+        this._wrapper.currentHeight = wrapperHeight;
 
         // wrapperParent.append(wrapper);
 
@@ -451,6 +426,28 @@ class TileSorter {
         else {
             this._animate(this._onAnimationEnd);
         }
+    }
+
+    _onBeforeAnimationStart() {
+        this._tilesToAnimate.forEach(tile => {
+            if (tile.animationData.appear) {
+                const { DOMNode, animationData: { to: { top, left, height } } } = tile;
+
+                DOMNode.style.top = `${top}px`;
+                DOMNode.style.left = `${left}px`;
+                DOMNode.style.height = `${height}px`;
+                DOMNode.style.transform = "scale(0)";
+                DOMNode.style.display = this._tileDefaults.display;
+
+                tile.currentState = {
+                    display: this._tileDefaults.display,
+                    top,
+                    left,
+                    height,
+                    scale: 1,
+                };
+            }
+        });
     }
 
     _onAnimationEnd() {
@@ -466,11 +463,24 @@ class TileSorter {
             currentState.height = height;
             currentState.scale = 1;
         });
+
         this._hiddenTiles.forEach(tile => {
             const { DOMNode, currentState } = tile;
             DOMNode.style.display = "none";
             currentState.display = "none";
         });
-        this._wrapper.DOMNode.style.height = `${this._wrapper.animationData.to.height}px`;
+
+        const wrapper = this._wrapper;
+        const { to: height } = wrapper.animationData;
+        wrapper.DOMNode.style.height = `${height}px`;
+        wrapper.currentHeight = height;
+    }
+
+    _linearTimingFn(timeFraction) {
+        return timeFraction;
+    }
+
+    _animate(fn) {
+        this._pendingRAF = requestAnimationFrame(fn);
     }
 }
