@@ -382,10 +382,6 @@ class TileSorter {
         let progress = (time - start) / this._duration;
         progress = progress > 1 ? 1 : progress;
 
-        // const wrapper = this._wrapper.DOMNode;
-        // const wrapperParent = wrapper.parentElement;
-        // wrapper.remove();
-
         this._tilesToAnimate.forEach(tile => {
             const { DOMNode, currentState } = tile;
             const { from, diff, appear, hide } = tile.animationData;
@@ -413,12 +409,11 @@ class TileSorter {
             }
         });
 
-        const { from, diff } = this._wrapper.animationData;
+        const wrapper = this._wrapper;
+        const { from, diff } = wrapper.animationData;
         const wrapperHeight = from + diff * progress;
-        this._wrapper.DOMNode.style.height = `${wrapperHeight}px`;
-        this._wrapper.currentHeight = wrapperHeight;
-
-        // wrapperParent.append(wrapper);
+        wrapper.DOMNode.style.height = `${wrapperHeight}px`;
+        wrapper.currentHeight = wrapperHeight;
 
         if (progress < 1) {
             this._animate(this._animationHandler);
