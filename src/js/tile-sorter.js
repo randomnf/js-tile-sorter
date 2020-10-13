@@ -88,7 +88,9 @@ class TileSorter {
             paddingRight:   parseFloat(wrapperStyle.paddingRight),
             paddingBottom:  parseFloat(wrapperStyle.paddingBottom),
             paddingLeft:    parseFloat(wrapperStyle.paddingLeft),
+            borderTop:      parseFloat(wrapperStyle.borderTopWidth),
             borderRight:    parseFloat(wrapperStyle.borderRightWidth),
+            borderBottom:   parseFloat(wrapperStyle.borderBottomWidth),
             borderLeft:     parseFloat(wrapperStyle.borderLeftWidth),
         };
 
@@ -349,12 +351,14 @@ class TileSorter {
             rowTop
             + this._visibleTiles[this._visibleTiles.length - 1].animationData.to.height
             + this._tileDefaults.marginBottom
+            + wrapper.snappedSizes.borderTop
+            + wrapper.snappedSizes.borderBottom
             + wrapper.snappedSizes.paddingBottom
         );
         wrapper.animationData = {
             from,
             to,
-            diff: to - from + 4,
+            diff: to - from,
         };
     }
 
