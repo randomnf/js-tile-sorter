@@ -297,6 +297,8 @@ ul,
 }
 
 .portfolio {
+    position: relative;
+
     display: flex;
     flex-wrap: wrap;
 
@@ -443,12 +445,10 @@ ul,
     }
 
     &__img {
-        position: absolute;
-        top: 0;
-        left: 0;
+        display: block;
 
         width: 100%;
-        min-height: 100%;
+        height: auto;
     }
 
     &__links {
