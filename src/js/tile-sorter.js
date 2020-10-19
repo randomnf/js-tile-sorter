@@ -159,10 +159,12 @@ class TileSorter {
                     width: ${this._currentTileWidth}px;
                 `;
 
+                tile.defaults.left = left;
+
                 tile.currentState = {
                     display: this._tileDefaults.display,
-                    top,
-                    left,
+                    top: 0,
+                    left: 0,
                     height,
                     scale: 1,
                 };
@@ -282,7 +284,8 @@ class TileSorter {
             };
 
             if (visibleIndex !== -1) {
-                const { selfHeight } = tile.defaults;
+                const { defaults } = tile;
+                const { selfHeight } = defaults;
                 const currentRowTmp = Math.floor(visibleIndex / this._tilesInRow);
                 const isNewRow = currentRow !== currentRowTmp;
                 const isShiftOccurred = !isNewRow && selfHeight > rowHeight;
@@ -307,11 +310,11 @@ class TileSorter {
 
                 const to = {
                     height: selfHeight < rowHeight ? rowHeight : selfHeight,
-                    top:    rowTop,
+                    top:    rowTop - defaults.top,
                     left:   (
                         wrapper.defaults.paddingLeft
                         + this._currentTileWidth * (visibleIndex % this._tilesInRow)
-                    ),
+                    ) - defaults.left,
                 };
                 tile.targetState.to = to;
 
@@ -381,10 +384,10 @@ class TileSorter {
         this._tilesToAnimate = this._tilesToAnimate.filter(tile => !tilesNotChanging.includes(tile));
     }
 
-    _animationHandler(time) {
-        this._animationStartTime ||= time;
+    _animationHandler(now) {
+        this._animationStartTime ||= now;
         const start = this._animationStartTime;
-        let progress = (time - start) / this._duration;
+        let progress = (now - start) / this._duration;
         progress = progress > 1 ? 1 : progress;
 
         this._tilesToAnimate.forEach(tile => {
@@ -392,11 +395,11 @@ class TileSorter {
             const { from, diff, appear, hide } = tile.targetState;
 
             if (appear) {
-                DOMNode.style.transform = `scale(${progress})`;
+                DOMNode.style.transform = `translate(${currentState.left}px, ${currentState.top}px) scale(${progress})`;
                 currentState.scale = progress;
             }
             else if (hide) {
-                DOMNode.style.transform = `scale(${1 - progress})`;
+                DOMNode.style.transform = `translate(${currentState.left}px, ${currentState.top}px) scale(${1 - progress})`;
                 currentState.scale = 1 - progress;
             }
             else {
@@ -404,9 +407,8 @@ class TileSorter {
                 const left = from.left + diff.left * progress;
                 const height = from.height + diff.height * progress;
 
-                DOMNode.style.top = `${top}px`;
-                DOMNode.style.left = `${left}px`;
                 DOMNode.style.height = `${height}px`;
+                DOMNode.style.transform = `translate(${left}px, ${top}px)`;
 
                 currentState.top = top;
                 currentState.left = left;
@@ -433,10 +435,8 @@ class TileSorter {
             if (tile.targetState.appear) {
                 const { DOMNode, targetState: { to: { top, left, height } } } = tile;
 
-                DOMNode.style.top = `${top}px`;
-                DOMNode.style.left = `${left}px`;
                 DOMNode.style.height = `${height}px`;
-                DOMNode.style.transform = "scale(0)";
+                DOMNode.style.transform = `translate(${left}px, ${top}px) scale(0)`;
                 DOMNode.style.display = this._tileDefaults.display;
 
                 tile.currentState = {
@@ -444,7 +444,7 @@ class TileSorter {
                     top,
                     left,
                     height,
-                    scale: 1,
+                    scale: 0,
                 };
             }
         });
@@ -453,10 +453,8 @@ class TileSorter {
     _onAnimationEnd() {
         this._visibleTiles.forEach(tile => {
             const { DOMNode, currentState, targetState: { to: { top, left, height } } } = tile;
-            DOMNode.style.top = `${top}px`;
-            DOMNode.style.left = `${left}px`;
             DOMNode.style.height = `${height}px`;
-            DOMNode.style.transform = "scale(1)";
+            DOMNode.style.transform = `translate(${left}px, ${top}px) scale(1)`;
 
             currentState.top = top;
             currentState.left = left;
