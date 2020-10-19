@@ -82,7 +82,7 @@ class TileSorter {
         const wrapper = this._wrapper;
         const wrapperDOMNode = wrapper.DOMNode;
         const wrapperStyle = getComputedStyle(wrapperDOMNode);
-        wrapper.snappedSizes = {
+        const wrapperDefaults = {
             height:         wrapperDOMNode.offsetHeight,
             paddingTop:     parseFloat(wrapperStyle.paddingTop),
             paddingRight:   parseFloat(wrapperStyle.paddingRight),
@@ -93,6 +93,7 @@ class TileSorter {
             borderBottom:   parseFloat(wrapperStyle.borderBottomWidth),
             borderLeft:     parseFloat(wrapperStyle.borderLeftWidth),
         };
+        wrapper.defaults = wrapperDefaults;
 
         // принудительно устанавливаем position: relative для враппера
         // чтобы корректно посчитать исходные координаты для тайлов
@@ -116,7 +117,7 @@ class TileSorter {
                 prevTileTop = top;
             }
 
-            tile.snappedSizes = {
+            tile.defaults = {
                 height,
                 top,
             };
@@ -132,23 +133,23 @@ class TileSorter {
         this._tilesInRow = tilesInRow;
         this._currentTileWidth = (
             wrapperDOMNode.offsetWidth
-            - wrapper.snappedSizes.paddingRight
-            - wrapper.snappedSizes.paddingLeft
-            - wrapper.snappedSizes.borderRight
-            - wrapper.snappedSizes.borderLeft
+            - wrapperDefaults.paddingRight
+            - wrapperDefaults.paddingLeft
+            - wrapperDefaults.borderRight
+            - wrapperDefaults.borderLeft
         ) / tilesInRow;
     }
 
     _setInitialState() {
         this._animate(() => {
             const wrapper = this._wrapper;
-            const { height } = wrapper.snappedSizes;
+            const { height } = wrapper.defaults;
             wrapper.DOMNode.style.height = `${height}px`;
             wrapper.currentHeight = height;
 
             // три раза обходим тайлы, чтобы избежать ненужных Forced Synchronous Layouts
             this._tiles.forEach((tile, index) => {
-                const { DOMNode, snappedSizes: { top, height } } = tile;
+                const { DOMNode, defaults: { top, height } } = tile;
                 const left = this._currentTileWidth * (index % this._tilesInRow);
 
                 DOMNode.style = `
@@ -158,10 +159,12 @@ class TileSorter {
                     width: ${this._currentTileWidth}px;
                 `;
 
+                tile.defaults.left = left;
+
                 tile.currentState = {
                     display: this._tileDefaults.display,
-                    top,
-                    left,
+                    top: 0,
+                    left: 0,
                     height,
                     scale: 1,
                 };
@@ -170,11 +173,11 @@ class TileSorter {
             // запоминаем собственную высоту тайла и далее ставим обратно
             // это нужно для выравнивания тайлов в строке по высоте
             this._tiles.forEach(tile => {
-                tile.snappedSizes.selfHeight = tile.DOMNode.offsetHeight;
+                tile.defaults.selfHeight = tile.DOMNode.offsetHeight;
             });
 
             this._tiles.forEach(tile => {
-                tile.DOMNode.style.height = `${tile.snappedSizes.height}px`;
+                tile.DOMNode.style.height = `${tile.defaults.height}px`;
             });
 
             this._inited = true;
@@ -256,32 +259,33 @@ class TileSorter {
     }
 
     _startAnimation() {
-        this._setAnimationData();
+        this._setTargetStates();
         this._animate(this._onBeforeAnimationStart);
         this._animationStartTime = null;
         this._animate(this._animationHandler);
     }
 
-    _setAnimationData() {
+    _setTargetStates() {
         this._tilesToAnimate = [];
 
         const wrapper = this._wrapper;
         let currentRow = 0;
-        let rowHeight = this._visibleTiles[0].snappedSizes.selfHeight;
+        let rowHeight = this._visibleTiles[0].defaults.selfHeight;
         let rowToAdjust = null;
-        let rowTop = wrapper.snappedSizes.paddingTop;
+        let rowTop = wrapper.defaults.paddingTop;
 
         this._tiles.forEach(tile => {
             const { currentState } = tile;
             // TODO не создавать массивы visible/hidden, а лепить индексы прямо на тайл?
             const visibleIndex = this._visibleTiles.indexOf(tile);
-            tile.animationData = {
+            tile.targetState = {
                 hide:   false,
                 appear: false,
             };
 
             if (visibleIndex !== -1) {
-                const { selfHeight } = tile.snappedSizes;
+                const { defaults } = tile;
+                const { selfHeight } = defaults;
                 const currentRowTmp = Math.floor(visibleIndex / this._tilesInRow);
                 const isNewRow = currentRow !== currentRowTmp;
                 const isShiftOccurred = !isNewRow && selfHeight > rowHeight;
@@ -293,7 +297,7 @@ class TileSorter {
                     }
                     rowToAdjust = null;
                     rowTop += (
-                        this._visibleTiles[visibleIndex - 1].animationData.to.height
+                        this._visibleTiles[visibleIndex - 1].targetState.to.height
                         + this._tileDefaults.marginBottom
                     );
                 }
@@ -306,13 +310,13 @@ class TileSorter {
 
                 const to = {
                     height: selfHeight < rowHeight ? rowHeight : selfHeight,
-                    top:    rowTop,
+                    top:    rowTop - defaults.top,
                     left:   (
-                        wrapper.snappedSizes.paddingLeft
+                        wrapper.defaults.paddingLeft
                         + this._currentTileWidth * (visibleIndex % this._tilesInRow)
-                    ),
+                    ) - defaults.left,
                 };
-                tile.animationData.to = to;
+                tile.targetState.to = to;
 
                 if (currentState.display !== "none") {
                     const from = {
@@ -320,23 +324,23 @@ class TileSorter {
                         top:    currentState.top,
                         left:   currentState.left,
                     };
-                    tile.animationData.from = from;
+                    tile.targetState.from = from;
 
-                    tile.animationData.diff = {
+                    tile.targetState.diff = {
                         height: to.height - from.height,
                         top:    to.top - from.top,
                         left:   to.left - from.left,
                     };
                 }
                 else {
-                    tile.animationData.appear = true;
+                    tile.targetState.appear = true;
                 }
             }
 
             if ( this._hiddenTiles.includes(tile) ) {
                 if (currentState.display === "none") return;
 
-                tile.animationData.hide = true;
+                tile.targetState.hide = true;
             }
 
             this._tilesToAnimate.push(tile);
@@ -349,13 +353,13 @@ class TileSorter {
         const from = wrapper.currentHeight;
         const to = (
             rowTop
-            + this._visibleTiles[this._visibleTiles.length - 1].animationData.to.height
+            + this._visibleTiles[this._visibleTiles.length - 1].targetState.to.height
             + this._tileDefaults.marginBottom
-            + wrapper.snappedSizes.borderTop
-            + wrapper.snappedSizes.borderBottom
-            + wrapper.snappedSizes.paddingBottom
+            + wrapper.defaults.borderTop
+            + wrapper.defaults.borderBottom
+            + wrapper.defaults.paddingBottom
         );
-        wrapper.animationData = {
+        wrapper.targetState = {
             from,
             to,
             diff: to - from,
@@ -367,7 +371,7 @@ class TileSorter {
 
         for (let i = rowToAdjust * this._tilesInRow, end = i + this._tilesInRow; i < end; i++) {
             const tile = this._visibleTiles[i];
-            const { animationData: { to, from, diff } } = tile;
+            const { targetState: { to, from, diff } } = tile;
             to.height = rowHeight;
             diff.height = to.height - from.height;
 
@@ -380,22 +384,22 @@ class TileSorter {
         this._tilesToAnimate = this._tilesToAnimate.filter(tile => !tilesNotChanging.includes(tile));
     }
 
-    _animationHandler(time) {
-        this._animationStartTime ||= time;
+    _animationHandler(now) {
+        this._animationStartTime ||= now;
         const start = this._animationStartTime;
-        let progress = (time - start) / this._duration;
+        let progress = (now - start) / this._duration;
         progress = progress > 1 ? 1 : progress;
 
         this._tilesToAnimate.forEach(tile => {
             const { DOMNode, currentState } = tile;
-            const { from, diff, appear, hide } = tile.animationData;
+            const { from, diff, appear, hide } = tile.targetState;
 
             if (appear) {
-                DOMNode.style.transform = `scale(${progress})`;
+                DOMNode.style.transform = `translate(${currentState.left}px, ${currentState.top}px) scale(${progress})`;
                 currentState.scale = progress;
             }
             else if (hide) {
-                DOMNode.style.transform = `scale(${1 - progress})`;
+                DOMNode.style.transform = `translate(${currentState.left}px, ${currentState.top}px) scale(${1 - progress})`;
                 currentState.scale = 1 - progress;
             }
             else {
@@ -403,9 +407,8 @@ class TileSorter {
                 const left = from.left + diff.left * progress;
                 const height = from.height + diff.height * progress;
 
-                DOMNode.style.top = `${top}px`;
-                DOMNode.style.left = `${left}px`;
                 DOMNode.style.height = `${height}px`;
+                DOMNode.style.transform = `translate(${left}px, ${top}px)`;
 
                 currentState.top = top;
                 currentState.left = left;
@@ -414,7 +417,7 @@ class TileSorter {
         });
 
         const wrapper = this._wrapper;
-        const { from, diff } = wrapper.animationData;
+        const { from, diff } = wrapper.targetState;
         const wrapperHeight = from + diff * progress;
         wrapper.DOMNode.style.height = `${wrapperHeight}px`;
         wrapper.currentHeight = wrapperHeight;
@@ -429,13 +432,11 @@ class TileSorter {
 
     _onBeforeAnimationStart() {
         this._tilesToAnimate.forEach(tile => {
-            if (tile.animationData.appear) {
-                const { DOMNode, animationData: { to: { top, left, height } } } = tile;
+            if (tile.targetState.appear) {
+                const { DOMNode, targetState: { to: { top, left, height } } } = tile;
 
-                DOMNode.style.top = `${top}px`;
-                DOMNode.style.left = `${left}px`;
                 DOMNode.style.height = `${height}px`;
-                DOMNode.style.transform = "scale(0)";
+                DOMNode.style.transform = `translate(${left}px, ${top}px) scale(0)`;
                 DOMNode.style.display = this._tileDefaults.display;
 
                 tile.currentState = {
@@ -443,7 +444,7 @@ class TileSorter {
                     top,
                     left,
                     height,
-                    scale: 1,
+                    scale: 0,
                 };
             }
         });
@@ -451,11 +452,9 @@ class TileSorter {
 
     _onAnimationEnd() {
         this._visibleTiles.forEach(tile => {
-            const { DOMNode, currentState, animationData: { to: { top, left, height } } } = tile;
-            DOMNode.style.top = `${top}px`;
-            DOMNode.style.left = `${left}px`;
+            const { DOMNode, currentState, targetState: { to: { top, left, height } } } = tile;
             DOMNode.style.height = `${height}px`;
-            DOMNode.style.transform = "scale(1)";
+            DOMNode.style.transform = `translate(${left}px, ${top}px) scale(1)`;
 
             currentState.top = top;
             currentState.left = left;
@@ -470,7 +469,7 @@ class TileSorter {
         });
 
         const wrapper = this._wrapper;
-        const { to: height } = wrapper.animationData;
+        const { to: height } = wrapper.targetState;
         wrapper.DOMNode.style.height = `${height}px`;
         wrapper.currentHeight = height;
     }
